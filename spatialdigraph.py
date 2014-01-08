@@ -116,18 +116,32 @@ class SpatialDiGraph(networkx.DiGraph):
         return None
 
  
-    def writeGisFile(self, path, driver, dtype = 'str'):
+    def writeGisFile(self, path, driver, node_dtype = 'str', node_fields = None, edge_fields = None):
         '''
                 
         
         '''
 
+        if node_fields is None:
+            node_fields = {}
+
+        if edge_fields is None:
+            edge_fields = {}
+        
         try:
-            python_dtype = fiona.prop_type(dtype)
+            for dtype in node_fields.values():
+                fiona.prop_type(dtype)
+            for dtype in edge_fields.values():
+                fiona.prop_type(dtype)
+            fiona.prop_type(node_dtype)
         except Exception as e:
             raise Exception('error converting dtype to python type', e)
 
 
+        node_fields['node'] = node_dtype
+        edge_fields['anode'] = node_dtype
+        edge_fields['bnode'] = node_dtype
+        
           
         with fiona.open(
             path,
@@ -136,16 +150,29 @@ class SpatialDiGraph(networkx.DiGraph):
             driver = driver,
             crs = self.graph['crs'],
             schema = {'geometry':'Point',
-                      'properties':{'node':dtype}}) as c:
+                      'properties':node_fields}) as c:
 
             for node in self.nodes_iter():
 
-                geom = self.geometry(node_id)  
+                geom = self.geometry(node)  
 
-                props = {'node':python_dtype(node)}
+                props = {}
+
+                for k, dtype in node_fields.items():
+                    if k != 'node':
+                        if self.node[node].get(k) is None:
+                            props[k] = None
+                        else:
+                            props[k] = fiona.prop_type(dtype)(self.node[node][k])
+                        
+                props['node'] = fiona.prop_type(node_dtype)(node)
                 
                 c.write({'geometry':geom, 'properties':props})
                      
+
+        
+
+
         with fiona.open(
             path,
             'w',
@@ -153,13 +180,26 @@ class SpatialDiGraph(networkx.DiGraph):
             driver = driver,
             crs = self.graph['crs'],
             schema = {'geometry':'LineString',
-                      'properties':{'anode':dtype, 'bnode':dtype}}) as c:
+                      'properties':edge_fields}) as c:
 
             for u, v in self.edges_iter():
 
                 geom = self.geometry(u, v)
 
-                props = {'anode':python_dtype(u), 'bnode':python_dtype(v)}
+                props = {}
+
+                for k, dtype in edge_fields.items():
+                    if k not in ['anode', 'bnode']:
+                        if self.edge[u][v].get(k) is None:
+                            props[k] = None
+                        else:
+                            props[k] = fiona.prop_type(dtype)(self.edge[u][v][k])
+ 
+                            
+
+
+                props.update({'anode':fiona.prop_type(node_dtype)(u),
+                              'bnode':fiona.prop_type(node_dtype)(v)})
 
                 c.write({'geometry':geom, 'properties':props})
 
