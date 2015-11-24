@@ -237,7 +237,7 @@ def readGisFile(path, method, precision = None):
 
 
     def rnd(coords, precision = precision):
-        return map(lambda x: round(x, precision))
+        return tuple(map(lambda x: round(x, precision), coords))
 
 
     with fiona.open(path, 'r', layer = 'nodes') as c:
