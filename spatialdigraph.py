@@ -279,23 +279,22 @@ def readGisFile(path, method, precision = None):
 
             props.pop('anode')
             props.pop('bnode')
+            
+            
+            if (anode not in g.node) or (bnode not in g.node):
+                if method == 'bylocation':
+                    msg = ('An end point for edge {} is not close enough to '
+                           'any node. (Precision is {})').format((anode, bnode), precision)
+                    raise Exception(msg, anode, bnode, props)
+                else:
+                    msg = ('An end node for edge {} is not one of the nodes'
+                           'in the node dataset.').format((anode, bnode))
+                    raise Exception(msg, anode, bnode, props)
+            
+            
 
             g.add_edge(anode, bnode, props)       
 
     g.graph['crs'] = c.crs
 
     return g
-
-        
-
-    
-    
-
-
-
-
-    
-    
-    
-    
-    
